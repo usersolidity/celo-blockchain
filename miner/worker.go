@@ -693,6 +693,14 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, txFe
 
 	var coalescedLogs []*types.Log
 
+	gasPriceMinimums := make(map[common.Address]*big.Int)
+	allCurrencies, _ := currency.CurrencyWhitelist(nil, nil)
+	for _, currency := range allCurrencies {
+		gasPriceMinimum, _ := gpm.GetGasPriceMinimum(&currency, nil, nil)
+		gasPriceMinimums[currency] = gasPriceMinimum
+	}
+	nativeGPM, _ := gpm.GetGasPriceMinimum(nil, nil, nil)
+
 	for {
 		// In the following three cases, we will interrupt the execution of the transaction.
 		// (1) new head block event arrival, the interrupt signal is 1
@@ -728,7 +736,12 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, txFe
 		// We will not add any more txns from the `txns` parameter if `tx`'s gasPrice is below the gas price minimum.
 		// All the other transactions after this `tx` will either also be below the gas price minimum or will have a
 		// nonce that is non sequential to the last mined txn for the account.
-		gasPriceMinimum, _ := gpm.GetGasPriceMinimum(tx.FeeCurrency(), w.current.header, w.current.state)
+		var gasPriceMinimum *big.Int
+		if tx.FeeCurrency() == nil {
+			gasPriceMinimum = nativeGPM
+		} else {
+			gasPriceMinimum = gasPriceMinimums[*tx.FeeCurrency()]
+		}
 		if tx.GasPrice().Cmp(gasPriceMinimum) == -1 {
 			log.Info("Excluding transaction from block due to failure to exceed gasPriceMinimum", "gasPrice", tx.GasPrice(), "gasPriceMinimum", gasPriceMinimum)
 			break
