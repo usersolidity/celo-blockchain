@@ -167,6 +167,7 @@ func (n *Node) Run(ctx context.Context) error {
 		"--etherbase", n.Account.Address.Hex(),
 		"--unlock", addressToUnlock,
 		"--password", n.pwdFile(),
+		"--cpuprofile", "cpu.profile",
 	}
 	cmd := exec.Command(n.GethPath, args...) // #nosec G204
 
